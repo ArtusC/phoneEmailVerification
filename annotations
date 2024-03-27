@@ -1,0 +1,157 @@
+* docker-compose
+
+# services:
+#   mongodb:
+#     image: mongo
+#     container_name: mongodb
+#     restart: always
+#     environment:
+#       MONGO_INITDB_ROOT_USERNAME: root
+#       MONGO_INITDB_ROOT_PASSWORD: root
+#       MONGO_INITDB_DATABASE: phoneDb
+#     ports:
+#       - "27017:27017"
+#     volumes:
+#       - ./data:/data/mongoDb
+#       # - ./keys/mongodb-keyfile:/keys/mongodb-keyfile:ro
+#       # - ./scripts/init-replica-set.sh:/scripts/init-replica-set.sh:ro
+#       - ./scripts/init-mongo.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+#     # entrypoint: [ "/scripts/init-replica-set.sh" ]
+#     # command: mongod --port 27017 --ipv6 --replSet rs0 --bind_ip_all --auth --keyFile /keys/mongodb-keyfile
+#     networks:
+#       - mongo-network
+# networks:
+#   mongo-network:
+#     driver: bridge
+
+
+
+
+
+    # entrypoint:
+    #     - bash
+    #     - -c
+    #     - |
+    #       chmod +x /scripts/init-replica-set.sh
+    #       /scripts/init-replica-set.sh
+    #       mongod --ipv6 --replSet rs0 --bind_ip_all localhost --auth --keyFile /keys/mongodb-keyfile
+    # command: mongod --ipv6 --replSet rs0 --bind_ip_all --auth --keyFile /keys/mongodb-keyfile #&& /scripts/init-replica-set.sh
+    # command: ["bash", "-c", "/scripts/init-replica-set.sh && mongod --replSet rs0 --bind_ip_all --auth --keyFile /keys/mongodb-keyfile"]
+    # command: ["mongod --replSet rs0 --bind_ip_all --auth --keyFile /keys/mongodb-keyfile && bash -c /scripts/init-replica-set.sh"]
+    # command: ["bash", "-c", "mongod --replSet rs0 --bind_ip_all --auth --keyFile /keys/mongodb-keyfile"]
+
+
+
+
+# version: '3'
+
+# services:
+#   mongodb:
+#     image: mongo
+#     hostname: localhost
+#     restart: always
+#     container_name: mongodb
+#     environment:
+#       - MONGO_INITDB_ROOT_USERNAME=root
+#       - MONGO_INITDB_ROOT_PASSWORD=root
+#       - MONGO_INITDB_DATABASE=phoneDb
+#     ports:
+#       - 27017:27017
+#     networks:
+#       - mongo-network
+#     volumes:
+#       - ./scripts:/docker-entrypoint-initdb.d/
+#       - ./data:/data/mongoDb
+#       - ./keys:/keys
+#     healthcheck:
+#       test: test $$(echo "rs.initiate().ok || rs.status().ok" | mongo -u mongo -p mongo --quiet) -eq 1
+#       interval: 10s
+#       start_period: 30s
+#     command: ["--replSet", "rs0", "--bind_ip_all", "--keyFile", "/keys/mongodb-keyfile", "--port", "27017"]
+
+# networks:
+#   mongo-network:
+#     driver: bridge
+
+# services:     
+  # mongodb:
+  #   image: mongo
+  #   container_name: mongodb
+  #   environment:
+  #     - MONGO_INITDB_ROOT_USERNAME=root
+  #     - MONGO_INITDB_ROOT_PASSWORD=root
+  #     - MONGO_INITDB_DATABASE=phoneDb
+  #     - MONGO_REPLICA_SET_NAME=rs0
+  #   ports:
+  #     - "27017:27017"
+
+  #   # command: ["--replSet", "rs0", "--keyFile", "/mongodb-keyfile", "--bind_ip_all", "--port", "27017"]
+  #   # mongod --replSet rs0 --keyFile /keys/mongodb-keyfile --bind_ip_all
+  #   # entrypoint: [ "/usr/bin/mongod", "--bind_ip_all", "--replSet", "rs0" ]
+  #   # command: --replSet rs0 --bind_ip_all 
+  #   # --keyFile /keys/mongodb-keyfile
+  #   # entrypoint:
+  #   #         - bash
+  #   #         - -c
+  #   #         - |
+  #   #           chmod 400 /keys/mongodb-keyfile
+  #   #           chown 999:999 /keys/mongodb-keyfile
+  #   #           mongod --replSet rs0 --keyFile /keys/mongodb-keyfile --bind_ip_all
+  #   # command: "mongod --bind_ip_all --replSet rs0 --keyFile /keys/mongodb-keyfile"
+  #   volumes:
+  #     # - ./scripts/init-mongo.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+  #     - ./scripts:/docker-entrypoint-initdb.d/
+  #     - ./data:/data/mongoDb
+  #     - ./keys:/keys
+  #   command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017", "--keyFile", "/keys/mongodb-keyfile"]
+  #   healthcheck:
+  #     test: "echo 'db.runCommand(\"ping\").ok'"
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 3
+    # networks:
+    #   - mongo-compose-network
+
+
+
+* init-replica-set.sh
+
+# EXTERNAL_IP=$(hostname -I | awk '{print $1}')
+# echo "EXTERNAL_IP: $EXTERNAL_IP"
+
+# # Check if replica set is already initiated
+# if ! mongosh -u root -p root --authenticationDatabase admin --quiet --host "$HOST_IP" --eval "rs.status()" | grep -q '"set" : "rs0"'; then
+#   # Retry initiating replica set with retries
+#   retries=5
+#   until mongosh -u root -p root --authenticationDatabase admin --host "$HOST_IP" --eval "rs.initiate({
+#     _id: 'rs0',
+#     members: [
+#       { _id: 0, host: 'mongodb://root:root@$EXTERNAL_IP:27017' }
+#     ]
+#   })" || [ $retries -eq 0 ]; do
+#     echo "Retrying replica set initiation..."
+#     retries=$((retries - 1))
+#     sleep 5
+#   done
+# fi
+
+
+# rs.initiate({_id: 'rs0',members: [{ _id: 0, host: 'mongodb://root:root@mongodb:27017' }]})
+
+
+
+
+* .env
+# ME_CONFIG_BASICAUTH_USERNAME=root
+# ME_CONFIG_BASICAUTH_PASSWORD=root
+# ME_CONFIG_MONGODB_PORT=27017
+# ME_CONFIG_MONGODB_ADMINUSERNAME=root
+# ME_CONFIG_MONGODB_ADMINPASSWORD=root
+# ME_CONFIG_MONGODB_SERVER=mongo-server
+
+# ME_CONFIG_MONGODB_SERVER=mongo
+# ME_CONFIG_MONGODB_URL=mongo://root:root@mongo:27017/
+# ME_CONFIG_MONGODB_ADMINUSERNAME=root
+# ME_CONFIG_MONGODB_ADMINPASSWORD=root
+
+

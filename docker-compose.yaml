@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6
+    container_name: mongodb
+    hostname: localhost
+    # restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+      MONGO_INITDB_DATABASE: phoneDb
+    ports:
+      - 27018:27017
+    volumes:
+      - ./data/mongoDb:/data/mongoDb
+      - ./scripts/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    healthcheck:
+      test: "echo 'db.runCommand(\"ping\").ok'"
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    networks:
+      - my_network
+
+networks:
+  my_network:
+    driver: bridge
