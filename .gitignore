@@ -2,4 +2,4 @@ ajuda_do_di.txt
 annotations
 .env
 mongo_test_connection.go
-data
+/data
