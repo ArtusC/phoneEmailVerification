@@ -1,6 +1,10 @@
 package api
 
+import (
+	t "github.com/ArtusC/phoneEmailVerification/types"
+)
+
 type PhoneNumberUseCase interface {
 	CreatePhoneRecord(phoneNumber string) error
-	GetPhoneRecords() (map[string]interface{}, error)
+	GetPhoneRecords() (t.PhoneNumberResults, error)
 }

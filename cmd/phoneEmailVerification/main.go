@@ -19,13 +19,10 @@ var (
 func init() {
 	mongoUrl := "mongodb://root:root@localhost:27018"
 	ctx := context.Background()
-	// ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	// defer cancel()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoUrl))
 	if err != nil {
 		panic(err.Error())
 	}
-	// Check the connection
 	err = client.Ping(ctx, nil)
 	if err != nil {
 		fmt.Println(err.Error())

@@ -1,7 +1,10 @@
 package phonenumberusecase
 
 import (
+	"errors"
+
 	repository "github.com/ArtusC/phoneEmailVerification/internal/repository"
+	t "github.com/ArtusC/phoneEmailVerification/types"
 )
 
 const (
@@ -19,10 +22,10 @@ func NewPhoneUseCases(mongoRepo repository.MongoRepository) PhoneNumberUseCase {
 	}
 }
 
-func (p PhoneNumberUseCase) CreatePhoneRecord(phoneNumber string) error {
+func (p PhoneNumberUseCase) CreatePhoneRecord(data t.PhoneNumber) error {
 
-	data := map[string]interface{}{
-		"phoneNumber": phoneNumber,
+	if data.PhoneInput == "" {
+		return errors.New("the phone number is required")
 	}
 
 	err := p.storage.StoragePhoneRecord(data, dbName, collectionName)
@@ -33,7 +36,7 @@ func (p PhoneNumberUseCase) CreatePhoneRecord(phoneNumber string) error {
 	return nil
 }
 
-func (p PhoneNumberUseCase) GetPhoneRecords() (map[string]interface{}, error) {
+func (p PhoneNumberUseCase) GetPhoneRecords() (t.PhoneNumberResults, error) {
 
 	res, err := p.storage.GetPhoneRecords(dbName, collectionName)
 	if err != nil {

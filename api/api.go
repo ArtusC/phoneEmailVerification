@@ -41,7 +41,17 @@ func send(ctx *gin.Context, code int, val interface{}) {
 	ctx.JSON(code, val)
 }
 
+func (api Api) healthz(ctx *gin.Context) {
+	// log := api.log.Method("healthz").CreateTraceID()
+	// log.Debug("receive a simple request")
+
+	send(ctx, http.StatusOK, nil)
+}
+
 func (api Api) createPhoneRecord(ctx *gin.Context) {
+
+	// TEST WITH UNITY TEST FIRST: CHANGE THE STRUCT THAT WILL GO TO THE CreatePhoneRecord
+	// TODO: verify number already exists (if yes, use update route) -> collect data from API -> send to storage
 
 	phoneNumber := ctx.Param("insertPhoneNumber")
 
@@ -50,6 +60,8 @@ func (api Api) createPhoneRecord(ctx *gin.Context) {
 		panic(err.Error())
 	}
 }
+
+// TODO: create updatePhoneRecord route
 
 func (api Api) getPhoneRecords(ctx *gin.Context) {
 
