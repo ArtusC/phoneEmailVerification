@@ -46,4 +46,21 @@ var (
 			},
 		},
 	}
+
+	TestPhoneValue_2 = PhoneNumber{
+		PhoneInput: "12018675310",
+		IsValid:    true,
+		E164Format: "+12018675310",
+	}
+
+	TestPhoneValue_3 = PhoneNumber{
+		PhoneInput: "12018675355",
+		IsValid:    true,
+		E164Format: "+12018675355",
+	}
+
+	TestPhoneValue_Null = PhoneNumber{
+		ID:         "",
+		PhoneInput: "",
+	}
 )

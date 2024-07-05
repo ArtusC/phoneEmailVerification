@@ -5,6 +5,8 @@ import (
 )
 
 type PhoneNumberUseCase interface {
-	CreatePhoneRecord(phoneNumber string) error
-	GetPhoneRecords() (t.PhoneNumberResults, error)
+	CollectBigDataCloudApiData(phoneNumber, countryCode, localityLanguage string) (t.PhoneNumber, error)
+	CreatePhoneRecord(data t.PhoneNumber) error
+	GetAllPhoneRecords() (t.PhoneNumberResults, error)
+	GetPhone(phoneNumber string) (t.PhoneNumber, error)
 }

@@ -2,63 +2,76 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"os"
+	"time"
 
-	// collector "github.com/ArtusC/phoneEmailVerification/api"
 	api "github.com/ArtusC/phoneEmailVerification/api"
 	repository "github.com/ArtusC/phoneEmailVerification/internal/repository"
 	phoneNumberUseCase "github.com/ArtusC/phoneEmailVerification/usecases/phoneNumber"
+	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/rs/zerolog"
 )
 
 var (
 	mongoSession mongo.Session
+	logger       zerolog.Logger
+	api_bdc_key  string
 )
 
 func init() {
+
+	api_bdc_key = os.Getenv("API_BDC_KEY")
+	if api_bdc_key == "" {
+		panic("Please, create and export on the shell the necessary KEY to get data from BDC API (more details on README)")
+	}
+
+	logger = zerolog.New(
+		zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339},
+	).Level(zerolog.TraceLevel).With().Timestamp().Caller().Logger()
+
 	mongoUrl := "mongodb://root:root@localhost:27018"
+	logger.Info().Msgf("[MongoDb] Starting connection at %s!\n", mongoUrl)
+
 	ctx := context.Background()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoUrl))
 	if err != nil {
-		panic(err.Error())
+		logger.Panic().Msgf("[MongoDb] Error to start the client: %s", err.Error())
+		// panic(err.Error())
 	}
 	err = client.Ping(ctx, nil)
 	if err != nil {
-		fmt.Println(err.Error())
-		panic(err.Error())
+		logger.Panic().Msgf("[MongoDB] Errot to ping the client: %s", err.Error())
+		// panic(err.Error())
 	}
 
-	fmt.Println("MongoDB connection established!")
+	logger.Info().Msg("[MongoDB] Connection established!")
 	if mongoSession, err = client.StartSession(); err != nil {
-		panic(err.Error())
+		logger.Panic().Msgf("[MongoDB] Error to start session: %s", err.Error())
+		// panic(err.Error())
 	}
 }
 
 func main() {
-	fmt.Println("Starting aplication")
 
-	// Starts mongo repository.
-	mongoRepo := repository.NewMongoRepository(mongoSession)
+	logger.Info().Msg("Starting aplication!")
+
+	var ctx *gin.Context
+
+	logger.Info().Msg("Starting mongo repository.")
+	mongoRepo := repository.NewMongoRepository(ctx, logger, mongoSession)
 	defer mongoSession.EndSession(context.TODO())
 
-	phoneUseCases := phoneNumberUseCase.NewPhoneUseCases(mongoRepo)
+	logger.Info().Msg("Instatiating phone number use case.")
+	phoneUseCases := phoneNumberUseCase.NewPhoneUseCases(ctx, logger, mongoRepo, api_bdc_key)
 
-	api := api.NewApi(phoneUseCases)
+	logger.Info().Msg("Starting API.")
+	api := api.NewApi(ctx, logger, phoneUseCases)
 
 	if err := api.StartServer(); err != nil {
-		panic(fmt.Sprintf("error to start server due to %s", err.Error()))
+		logger.Fatal().Msgf("error to start server due to %s", err.Error())
 	}
-
-	// mongoDB, err := mongodb.CreateMongoClient(mongoURL)
-	// if err != nil {
-	// 	panic(fmt.Sprintf("error to connect with mongoDB due to %s", err.Error()))
-	// }
-
-	// LIDAR COM ESSA PARTE DAS ROTAS
-	// e := echo.New()
-	// e.POST("/api/phone", createPhone)
-	// http.HandleFunc("/api/phone", mongoRepo.CreateRecord())
-	// http.ListenAndServe(":8080", nil)
 
 }

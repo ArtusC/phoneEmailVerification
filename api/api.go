@@ -1,32 +1,41 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
 )
 
 type Api struct {
+	ctx           *gin.Context
+	logger        zerolog.Logger
 	phoneUseCases PhoneNumberUseCase
 	router        *gin.Engine
 }
 
-func (api Api) StartServer() error {
-	// log := api.log.Method("main").CreateTraceID()
-	// log.Debug("api server running on http://localhost:80\n")
+var (
+	port = ":8080"
+)
 
-	if err := api.router.Run(":8080"); err != nil {
-		// log.Error(err.Error())
+func (api Api) StartServer() error {
+	api.logger.Info().Msgf("api server running on http://localhost%s", port)
+	if err := api.router.Run(port); err != nil {
+		api.logger.Error().Msgf("error to start server: %s", err.Error())
 		return err
 	}
 	return nil
 }
 
-func NewApi(phoneUseCases PhoneNumberUseCase) Api {
-	api := Api{
+func NewApi(ctx *gin.Context, logger zerolog.Logger, phoneUseCases PhoneNumberUseCase) *Api {
+	api := &Api{
+		ctx:           ctx,
+		logger:        logger,
 		phoneUseCases: phoneUseCases,
 	}
 
+	api.logger.Info().Msg("instantiating routes")
 	api.router = api.routes()
 
 	return api
@@ -42,33 +51,78 @@ func send(ctx *gin.Context, code int, val interface{}) {
 }
 
 func (api Api) healthz(ctx *gin.Context) {
-	// log := api.log.Method("healthz").CreateTraceID()
-	// log.Debug("receive a simple request")
-
+	traceId, _ := ctx.Get("CorrelationID")
+	api.logger.Info().Str("traceId", traceId.(string)).Msg("[API-healthz] received a simple request")
 	send(ctx, http.StatusOK, nil)
 }
 
 func (api Api) createPhoneRecord(ctx *gin.Context) {
+	traceId, _ := ctx.Get("CorrelationID")
+	api.logger.Info().Str("traceId", traceId.(string)).Msg("[API-createPhoneRecord] starting")
 
-	// TEST WITH UNITY TEST FIRST: CHANGE THE STRUCT THAT WILL GO TO THE CreatePhoneRecord
-	// TODO: verify number already exists (if yes, use update route) -> collect data from API -> send to storage
+	phoneNumber := ctx.Param("numberToSearch")
+	countryCode := ctx.Param("countryCodeToSearch")
+	localityLanguage := ctx.Param("localityLanguageToSearch")
 
-	phoneNumber := ctx.Param("insertPhoneNumber")
+	api.logger.Info().Str("traceId", traceId.(string)).Msgf("[API-createPhoneRecord] phoneNumber: %s\ncountryCode: %s\nlocalityLanguage: %s\n", phoneNumber, countryCode, localityLanguage)
 
-	err := api.phoneUseCases.CreatePhoneRecord(phoneNumber)
+	phone, err := api.phoneUseCases.GetPhone(phoneNumber)
 	if err != nil {
-		panic(err.Error())
+		api.logger.Error().Str("traceId", traceId.(string)).Msgf("[API-createPhoneRecord] error to check the phone in db: %s\n", err.Error())
+		send(ctx, http.StatusBadRequest, nil)
+		return
 	}
+
+	if phone.PhoneInput != "" {
+		api.logger.Error().Str("traceId", traceId.(string)).Msgf("[API-createPhoneRecord] error: phone number %s already exists\n", phoneNumber)
+		send(ctx, http.StatusConflict, nil)
+		return
+	}
+
+	phoneData, err := api.phoneUseCases.CollectBigDataCloudApiData(phoneNumber, countryCode, localityLanguage)
+	if err != nil {
+		api.logger.Error().Str("traceId", traceId.(string)).Msgf("[API-createPhoneRecord] error to collect the phone data: %s\n", err.Error())
+		send(ctx, http.StatusBadRequest, nil)
+		return
+	}
+
+	err = api.phoneUseCases.CreatePhoneRecord(phoneData)
+	if err != nil {
+		api.logger.Error().Str("traceId", traceId.(string)).Msgf("[API-createPhoneRecord] error to storage the phone data: %s\n", err.Error())
+		send(ctx, http.StatusBadRequest, nil)
+		return
+	}
+
+	api.logger.Info().Str("traceId", traceId.(string)).Msgf("[API-createPhoneRecord] phone number %s collected and storaged on mongo", phoneNumber)
+	send(ctx, http.StatusCreated, nil)
+}
+
+func (api Api) getAllPhoneRecords(ctx *gin.Context) {
+	traceId, _ := ctx.Get("CorrelationID")
+	api.logger.Info().Str("traceId", traceId.(string)).Msg("[API-getAllPhoneRecords] starting")
+	phones, err := api.phoneUseCases.GetAllPhoneRecords()
+	if err != nil {
+		api.logger.Panic().Str("traceId", traceId.(string)).Msgf("[API-getAllPhoneRecords] error to get all phone data: %s\n", err.Error())
+	}
+
+	api.logger.Info().Str("traceId", traceId.(string)).Msg("[API-getAllPhoneRecords] got all phone data")
+	send(ctx, http.StatusOK, phones)
+}
+
+func (api Api) getPhone(ctx *gin.Context) {
+	traceId, _ := ctx.Get("CorrelationID")
+	api.logger.Info().Str("traceId", traceId.(string)).Msg("[API-getPhone] starting")
+	phoneNumber := ctx.Param("numberToSearch")
+
+	api.logger.Info().Str("traceId", traceId.(string)).Msgf("[API-getPhone] phoneNumber: %s\n", phoneNumber)
+
+	phone, err := api.phoneUseCases.GetPhone(fmt.Sprint(phoneNumber))
+	if err != nil {
+		api.logger.Panic().Str("traceId", traceId.(string)).Msgf("[API-getPhone] error to get phone data: %s\n", err.Error())
+	}
+
+	api.logger.Info().Str("traceId", traceId.(string)).Msgf("[API-getPhone] got phone data %s\n", phoneNumber)
+	send(ctx, http.StatusOK, phone)
 }
 
 // TODO: create updatePhoneRecord route
-
-func (api Api) getPhoneRecords(ctx *gin.Context) {
-
-	phones, err := api.phoneUseCases.GetPhoneRecords()
-	if err != nil {
-		panic(err.Error())
-	}
-
-	send(ctx, http.StatusOK, phones)
-}

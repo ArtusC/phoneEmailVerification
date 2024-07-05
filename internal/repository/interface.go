@@ -5,7 +5,8 @@ import (
 )
 
 type MongoRepository interface {
-	StoragePhoneRecord(data t.PhoneNumber, dbName string, collectionName string) error
-	UpdatePhoneRecord(data map[string]interface{}, dbName string, collectionName string) error
-	GetPhoneRecords(dbName string, collectionName string) (t.PhoneNumberResults, error)
+	StoragePhoneRecord(data t.PhoneNumber, dbName, collectionName string) error
+	UpdatePhoneRecord(data map[string]interface{}, dbName, collectionName string) error
+	GetAllPhoneRecords(dbName, collectionName string) (t.PhoneNumberResults, error)
+	GetPhone(dbName, collectionName, phoneNumber string) (t.PhoneNumber, error)
 }

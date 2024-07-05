@@ -1,2 +1,9 @@
-[] implementar testes com o PhoneNumber struct
-https://pkg.go.dev/go.mongodb.org/mongo-driver/mongo
+[] ver questão da KEY de acesso: passar por variavel de ambiente
+
+[] adicionar rabbitmq
+
+[] adicionar rota para ler inputs de um arquivo
+
+[] criar docker-compose separado para teste
+
+[] refatorar os codigos de log para deixar menos verboso (criar um pckg?)

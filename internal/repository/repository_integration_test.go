@@ -7,18 +7,28 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"reflect"
+	"sort"
 	"testing"
 
 	repository "github.com/ArtusC/phoneEmailVerification/internal/repository"
 	tp "github.com/ArtusC/phoneEmailVerification/types"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type fixture struct {
+	logger          zerolog.Logger
 	mongoSession    mongo.Session
 	mongoRepository repository.MongoRepository
+	ctxG            *gin.Context
 }
 
 var (
@@ -33,36 +43,76 @@ const (
 
 func setUp() *fixture {
 
+	log := zerolog.New(os.Stderr).With().Timestamp().Logger()
+
 	//TODO: change the docker-compose that will up the database (to not sobrescribe), dont put login/password
-	ctx := context.Background()
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoUrl))
+	ctxB := context.Background()
+	client, err := mongo.Connect(ctxB, options.Client().ApplyURI(mongoUrl))
 	if err != nil {
-		panic(err.Error())
+		log.Panic().Msgf("[MongoDBTest] Error to start the client: %s", err.Error())
+		// panic(err.Error())
 	}
-	err = client.Ping(ctx, nil)
+	err = client.Ping(ctxB, nil)
 	if err != nil {
-		panic(err.Error())
+		log.Panic().Msgf("[MongoDBTest] Errot to ping the client: %s", err.Error())
+		// panic(err.Error())
 	}
 
-	fmt.Println("MongoDBTest connection established!")
+	log.Info().Msg("[MongoDBTest] Connection established!")
 
 	if mongoSession, err = client.StartSession(); err != nil {
-		panic(err.Error())
+		log.Panic().Msgf("[MongoDBTest] Error to start session: %s", err.Error())
+		// panic(err.Error())
 	}
 
-	repository := repository.NewMongoRepository(mongoSession)
+	ctxG := mockCtxWithCorrelationId()
+	repository := repository.NewMongoRepository(ctxG, log, mongoSession)
+	log.Info().Msg("[MongoDBTest] Instantiate the Mongo repository")
 
 	return &fixture{
+		ctxG:            ctxG,
+		logger:          log,
 		mongoSession:    mongoSession,
 		mongoRepository: repository,
 	}
 }
 
+func mockCtxWithCorrelationId() (ctxG *gin.Context) {
+	// Create a new gin context for testing
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+
+	// Mock request headers
+	req, _ := http.NewRequest("GET", "/", nil)
+	req.Header.Set("X-Correlation-ID", generateCorrelationID())
+	ctx.Request = req
+
+	// Call the function you want to test
+	correlationID := ctx.GetHeader("X-Correlation-ID")
+	if correlationID == "" {
+		correlationID = generateCorrelationID()
+	}
+
+	// Add the correlation ID to the context
+	ctx.Set("CorrelationID", correlationID)
+
+	// Add the correlation ID to the response headers
+	ctx.Writer.Header().Set("X-Correlation-ID", correlationID)
+
+	return ctx
+}
+
+// Generate a unique correlation ID
+func generateCorrelationID() string {
+	return uuid.New().String()
+}
+
 func (f *fixture) tearDown() {
-	fmt.Println("MongoDBTest connection finished!")
-	defer f.mongoSession.EndSession(context.Background())
+	traceId, _ := f.ctxG.Get("CorrelationID")
+	f.logger.Info().Str("traceId", traceId.(string)).Msg("[MongoDBTest] Connection finished!")
 	d := f.mongoSession.Client().Database(dbName)
-	d.Drop(context.TODO())
+	d.Drop(context.Background())
+	defer f.mongoSession.EndSession(context.Background())
 }
 
 // go test -v -count=1 -covermode=atomic -tags integration ./internal/repository -run ^TestMongoRespository_StoragePhoneRecord$
@@ -77,7 +127,7 @@ func TestMongoRespository_StoragePhoneRecord(t *testing.T) {
 	}{
 		{
 			testName:      "save record correctly",
-			phoneOutput:   TestPhoneValue,
+			phoneOutput:   tp.TestPhoneValue,
 			expectedError: nil,
 		},
 	}
@@ -99,23 +149,93 @@ func TestMongoRespository_StoragePhoneRecord(t *testing.T) {
 	}
 }
 
-// go test -v -count=1 -covermode=atomic -tags integration ./internal/repository -run ^TestMongoRespository_GetPhoneRecords$
-func TestMongoRespository_GetPhoneRecords(t *testing.T) {
+// go test -v -count=1 -covermode=atomic -tags integration ./internal/repository -run ^TestMongoRespository_GetPhoneRecord$
+func TestMongoRespository_GetPhoneRecord(t *testing.T) {
 	f := setUp()
 	defer f.tearDown()
 
-	data := TestPhoneValue
+	testCases := []struct {
+		testName      string
+		phoneInput    string
+		expectedError error
+	}{
+		{
+			testName:      "get existing phone record",
+			phoneInput:    tp.TestPhoneValue.PhoneInput,
+			expectedError: nil,
+		},
+		{
+			testName:      "get non-existing phone record",
+			phoneInput:    "non-existing-phone",
+			expectedError: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			data := tp.TestPhoneValue
+			if tc.testName == "get existing phone record" {
+				err := f.mongoRepository.StoragePhoneRecord(data, dbName, collectionName)
+				assert.Nil(t, err)
+			}
+
+			res, err := f.mongoRepository.GetPhone(dbName, collectionName, tc.phoneInput)
+			assert.Equal(t, tc.expectedError, err)
+
+			if err == nil && res.ID != "" {
+				assert.Contains(t, fmt.Sprint(res.ID), repository.GetMD5Hash(data.PhoneInput))
+				assert.Contains(t, fmt.Sprint(res.E164Format), data.PhoneInput)
+			} else {
+				assert.Empty(t, res)
+			}
+		})
+	}
+}
+
+// go test -v -count=1 -covermode=atomic -tags integration ./internal/repository -run ^TestMongoRespository_GetAllPhoneRecords$
+func TestMongoRespository_GetAllPhoneRecordsOneRecord(t *testing.T) {
+	f := setUp()
+	defer f.tearDown()
+
+	data := tp.TestPhoneValue
 
 	err := f.mongoRepository.StoragePhoneRecord(data, dbName, collectionName)
 	assert.Nil(t, err)
 
-	res, err := f.mongoRepository.GetPhoneRecords(dbName, collectionName)
+	res, err := f.mongoRepository.GetAllPhoneRecords(dbName, collectionName)
 	assert.Nil(t, err)
 
 	fmt.Println("Result: ", res)
 
 	assert.Contains(t, fmt.Sprint(res[0].ID), repository.GetMD5Hash(data.PhoneInput))
 	assert.Contains(t, fmt.Sprint(res[0].E164Format), data.PhoneInput)
+
+}
+
+// go test -v -count=1 -covermode=atomic -tags integration ./internal/repository -run ^TestMongoRespository_GetAllPhoneRecordsMoreThanOneRecord$
+func TestMongoRespository_GetAllPhoneRecordsMoreThanOneRecord(t *testing.T) {
+	f := setUp()
+	defer f.tearDown()
+
+	data1 := tp.TestPhoneValue
+	data2 := tp.TestPhoneValue_2
+
+	err := f.mongoRepository.StoragePhoneRecord(data1, dbName, collectionName)
+	assert.Nil(t, err)
+
+	err = f.mongoRepository.StoragePhoneRecord(data2, dbName, collectionName)
+	assert.Nil(t, err)
+
+	res, err := f.mongoRepository.GetAllPhoneRecords(dbName, collectionName)
+	assert.Nil(t, err)
+
+	res = sortSliceOFStructByField(res, "ID")
+
+	assert.Contains(t, fmt.Sprint(res[0].ID), repository.GetMD5Hash(data1.PhoneInput))
+	assert.Contains(t, fmt.Sprint(res[0].E164Format), data1.PhoneInput)
+
+	assert.Contains(t, fmt.Sprint(res[1].ID), repository.GetMD5Hash(data2.PhoneInput))
+	assert.Contains(t, fmt.Sprint(res[1].E164Format), data2.PhoneInput)
 
 }
 
@@ -130,7 +250,7 @@ func TestMongoRespository_UpdatePhoneRecord(t *testing.T) {
 	}{
 		{
 			name: "Update existing phone record",
-			data: TestPhoneValue,
+			data: tp.TestPhoneValue,
 			newData: map[string]interface{}{
 				"_id":        "0dab7e5e343206634713474e42af8fe3",
 				"phoneInput": "1211111",
@@ -140,7 +260,7 @@ func TestMongoRespository_UpdatePhoneRecord(t *testing.T) {
 		},
 		{
 			name: "Do not update when new data id does not exist",
-			data: TestPhoneValue_2,
+			data: tp.TestPhoneValue_2,
 			newData: map[string]interface{}{
 				"_id":        "0dab7e5e343206634713474e42af8111",
 				"phoneInput": "12112345",
@@ -150,13 +270,13 @@ func TestMongoRespository_UpdatePhoneRecord(t *testing.T) {
 		},
 		{
 			name: "Do not update when a key in new data does not exist",
-			data: TestPhoneValue_3,
+			data: tp.TestPhoneValue_3,
 			newData: map[string]interface{}{
 				"_id":          "95dee1eaa24f8b7912df00f1ef797a63",
 				"keyDontExist": "12112365",
 			},
 			expected:            "",
-			expectedUpdateError: errors.New("key 'keyDontExist' does not exist in the existing document"),
+			expectedUpdateError: errors.New("key 'keyDontExist' does not exist"),
 		},
 	}
 
@@ -168,15 +288,14 @@ func TestMongoRespository_UpdatePhoneRecord(t *testing.T) {
 			err := f.mongoRepository.StoragePhoneRecord(tt.data, dbName, collectionName)
 			assert.Nil(t, err)
 
-			res, err := f.mongoRepository.GetPhoneRecords(dbName, collectionName)
+			res, err := f.mongoRepository.GetAllPhoneRecords(dbName, collectionName)
 			assert.Nil(t, err)
 			assert.Contains(t, fmt.Sprint(res), repository.GetMD5Hash(tt.data.PhoneInput))
 			assert.Contains(t, fmt.Sprint(res), tt.data.PhoneInput)
 
 			errUpd := f.mongoRepository.UpdatePhoneRecord(tt.newData, dbName, collectionName)
-			fmt.Println("Error: ", errUpd)
 			if errUpd == nil {
-				res, err = f.mongoRepository.GetPhoneRecords(dbName, collectionName)
+				res, err = f.mongoRepository.GetAllPhoneRecords(dbName, collectionName)
 				assert.Nil(t, err)
 				assert.Contains(t, fmt.Sprint(res[0].ID), repository.GetMD5Hash(tt.data.PhoneInput))
 				assert.Equal(t, fmt.Sprint(res[0].PhoneInput), tt.expected)
@@ -186,4 +305,27 @@ func TestMongoRespository_UpdatePhoneRecord(t *testing.T) {
 
 		})
 	}
+}
+
+func sortSliceOFStructByField(s tp.PhoneNumberResults, f string) tp.PhoneNumberResults {
+	// Use sort.Slice with a custom comparison function
+	sort.Slice(s, func(i, j int) bool {
+		// Use reflection to get the value of the field f for both elements
+		valI := reflect.ValueOf(s[i])
+		valJ := reflect.ValueOf(s[j])
+
+		// Get the field value using the field name f
+		fieldI := valI.FieldByName(f)
+		fieldJ := valJ.FieldByName(f)
+
+		// Make sure the field exists and is of the appropriate type (string in this case)
+		if !fieldI.IsValid() || !fieldJ.IsValid() || fieldI.Kind() != reflect.String || fieldJ.Kind() != reflect.String {
+			panic(fmt.Sprintf("Field %s does not exist or is not a string", f))
+		}
+
+		// Perform the comparison
+		return fieldI.String() < fieldJ.String()
+	})
+
+	return s
 }
