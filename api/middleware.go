@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 func ValidateStoragePhoneRoute() gin.HandlerFunc {
@@ -37,29 +36,4 @@ func ValidateStoragePhoneRoute() gin.HandlerFunc {
 func isNumeric(str string) bool {
 	_, err := strconv.Atoi(str)
 	return err == nil
-}
-
-// CorrelationIDMiddleware adds a correlation ID to the context and response headers
-func CorrelationIDMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-
-		correlationID := c.GetHeader("X-Correlation-ID")
-		if correlationID == "" {
-			correlationID = generateCorrelationID()
-		}
-
-		// Add the correlation ID to the context
-		c.Set("CorrelationID", correlationID)
-
-		// Add the correlation ID to the response headers
-		c.Writer.Header().Set("X-Correlation-ID", correlationID)
-
-		// Proceed to the next middleware/handler
-		c.Next()
-	}
-}
-
-// Generate a unique correlation ID
-func generateCorrelationID() string {
-	return uuid.New().String()
 }

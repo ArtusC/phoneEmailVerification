@@ -8,7 +8,7 @@ import (
 	api "github.com/ArtusC/phoneEmailVerification/api"
 	repository "github.com/ArtusC/phoneEmailVerification/internal/repository"
 	phoneNumberUseCase "github.com/ArtusC/phoneEmailVerification/usecases/phoneNumber"
-	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -39,36 +39,39 @@ func init() {
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoUrl))
 	if err != nil {
 		logger.Panic().Msgf("[MongoDb] Error to start the client: %s", err.Error())
-		// panic(err.Error())
 	}
 	err = client.Ping(ctx, nil)
 	if err != nil {
 		logger.Panic().Msgf("[MongoDB] Errot to ping the client: %s", err.Error())
-		// panic(err.Error())
 	}
 
 	logger.Info().Msg("[MongoDB] Connection established!")
 	if mongoSession, err = client.StartSession(); err != nil {
 		logger.Panic().Msgf("[MongoDB] Error to start session: %s", err.Error())
-		// panic(err.Error())
 	}
+}
+
+// Generate a unique correlation ID
+func traceID() string {
+	return uuid.New().String()
 }
 
 func main() {
 
 	logger.Info().Msg("Starting aplication!")
 
-	var ctx *gin.Context
-
 	logger.Info().Msg("Starting mongo repository.")
-	mongoRepo := repository.NewMongoRepository(ctx, logger, mongoSession)
+
+	logger = logger.With().Str("traceId", traceID()).Caller().Logger()
+
+	mongoRepo := repository.NewMongoRepository(logger, mongoSession)
 	defer mongoSession.EndSession(context.TODO())
 
 	logger.Info().Msg("Instatiating phone number use case.")
-	phoneUseCases := phoneNumberUseCase.NewPhoneUseCases(ctx, logger, mongoRepo, api_bdc_key)
+	phoneUseCases := phoneNumberUseCase.NewPhoneUseCases(logger, mongoRepo, api_bdc_key)
 
 	logger.Info().Msg("Starting API.")
-	api := api.NewApi(ctx, logger, phoneUseCases)
+	api := api.NewApi(logger, phoneUseCases)
 
 	if err := api.StartServer(); err != nil {
 		logger.Fatal().Msgf("error to start server due to %s", err.Error())

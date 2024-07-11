@@ -7,8 +7,6 @@ import (
 func (api *Api) routes() *gin.Engine {
 	router := gin.Default()
 
-	router.Use(CorrelationIDMiddleware())
-
 	router.GET("/healthz", api.healthz)
 
 	// /api/phoneNumber/12018675309/countryCode/us/localityLanguage/en

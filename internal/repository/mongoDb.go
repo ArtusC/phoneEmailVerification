@@ -8,60 +8,55 @@ import (
 	"fmt"
 
 	t "github.com/ArtusC/phoneEmailVerification/types"
-	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type mongoRepository struct {
-	ctx     *gin.Context
 	logger  zerolog.Logger
 	session mongo.Session
 }
 
-func NewMongoRepository(ctx *gin.Context, logger zerolog.Logger, session mongo.Session) MongoRepository {
+func NewMongoRepository(logger zerolog.Logger, session mongo.Session) MongoRepository {
 	return mongoRepository{
-		ctx:     ctx,
 		logger:  logger,
 		session: session,
 	}
 }
 
-func (m mongoRepository) StoragePhoneRecord(data t.PhoneNumber, dbName string, collectionName string) error {
+func (m mongoRepository) StoragePhoneRecord(log zerolog.Logger, data t.PhoneNumber, dbName string, collectionName string) error {
 	session := m.session
 	collection := session.Client().Database(dbName).Collection(collectionName)
 
-	traceId, _ := m.ctx.Get("CorrelationID")
-	m.logger.Info().Str("traceId", traceId.(string)).Msgf("[storage-StoragePhoneRecord] started session, db: %s and collection: %s", dbName, collectionName)
+	m.logger.Info().Msgf("[storage-StoragePhoneRecord] started session, db: %s and collection: %s", dbName, collectionName)
 
 	phoneNumber := data.PhoneInput
 	data.ID = GetMD5Hash(phoneNumber)
-	m.logger.Info().Str("traceId", traceId.(string)).Msgf("[storage-StoragePhoneRecord] data.ID: %s", data.ID)
+	m.logger.Info().Msgf("[storage-StoragePhoneRecord] data.ID: %s", data.ID)
 
 	ctx := context.Background()
 	_, err := collection.InsertOne(ctx, data)
 
 	if err != nil {
-		m.logger.Error().Str("traceId", traceId.(string)).Msgf("[storage-StoragePhoneRecord] Problem to insert data on MongoDB: %s", err.Error())
+		m.logger.Error().Msgf("[storage-StoragePhoneRecord] Problem to insert data on MongoDB: %s", err.Error())
 		return err
 	}
 
-	m.logger.Info().Str("traceId", traceId.(string)).Msg("[storage-StoragePhoneRecord] data inserted in Mongo!")
+	m.logger.Info().Msg("[storage-StoragePhoneRecord] data inserted in Mongo!")
 	return nil
 }
 
-func (m mongoRepository) GetAllPhoneRecords(dbName string, collectionName string) (results t.PhoneNumberResults, err error) {
+func (m mongoRepository) GetAllPhoneRecords(log zerolog.Logger, dbName string, collectionName string) (results t.PhoneNumberResults, err error) {
 	session := m.session
 	collection := session.Client().Database(dbName).Collection(collectionName)
 
-	traceId, _ := m.ctx.Get("CorrelationID")
-	m.logger.Info().Str("traceId", traceId.(string)).Msgf("[storage-GetAllPhoneRecords] started session, db: %s and collection: %s", dbName, collectionName)
+	m.logger.Info().Msgf("[storage-GetAllPhoneRecords] started session, db: %s and collection: %s", dbName, collectionName)
 
 	ctx := context.Background()
 	cur, err := collection.Find(ctx, bson.D{})
 	if err != nil {
-		m.logger.Error().Str("traceId", traceId.(string)).Msgf("[storage-GetAllPhoneRecords] Problem to generate the cursor: %s", err.Error())
+		m.logger.Error().Msgf("[storage-GetAllPhoneRecords] Problem to generate the cursor: %s", err.Error())
 		return nil, err
 	}
 	defer cur.Close(ctx)
@@ -70,7 +65,7 @@ func (m mongoRepository) GetAllPhoneRecords(dbName string, collectionName string
 		var result bson.M
 
 		if err := cur.Decode(&result); err != nil {
-			m.logger.Error().Str("traceId", traceId.(string)).Msgf("[storage-GetAllPhoneRecords] Problem to decode the result: %s", err.Error())
+			m.logger.Error().Msgf("[storage-GetAllPhoneRecords] Problem to decode the result: %s", err.Error())
 			return nil, err
 		}
 
@@ -117,16 +112,15 @@ func (m mongoRepository) GetAllPhoneRecords(dbName string, collectionName string
 		results = append(results, phoneNumber)
 	}
 
-	m.logger.Info().Str("traceId", traceId.(string)).Msg("[storage-GetAllPhoneRecords] got all data from Mongo!")
+	m.logger.Info().Msg("[storage-GetAllPhoneRecords] got all data from Mongo!")
 	return results, nil
 }
 
-func (m mongoRepository) GetPhone(dbName, collectionName, phoneNumber string) (t.PhoneNumber, error) {
+func (m mongoRepository) GetPhone(log zerolog.Logger, dbName, collectionName, phoneNumber string) (t.PhoneNumber, error) {
 	session := m.session
 	collection := session.Client().Database(dbName).Collection(collectionName)
 
-	traceId, _ := m.ctx.Get("CorrelationID")
-	m.logger.Info().Str("traceId", traceId.(string)).Msgf("[storage-GetPhone] started session, db: %s and collection: %s", dbName, collectionName)
+	m.logger.Info().Msgf("[storage-GetPhone] started session, db: %s and collection: %s", dbName, collectionName)
 
 	ctx := context.Background()
 	filter := bson.M{"phoneInput": phoneNumber}
@@ -135,10 +129,10 @@ func (m mongoRepository) GetPhone(dbName, collectionName, phoneNumber string) (t
 
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			m.logger.Info().Str("traceId", traceId.(string)).Msg("[storage-GetPhone] document not found")
+			m.logger.Info().Msg("[storage-GetPhone] document not found")
 			return t.PhoneNumber{}, nil
 		} else {
-			m.logger.Error().Str("traceId", traceId.(string)).Msgf("[storage-GetPhone] error fetching phone record: %s", err.Error())
+			m.logger.Error().Msgf("[storage-GetPhone] error fetching phone record: %s", err.Error())
 			return t.PhoneNumber{}, errors.New(fmt.Sprint("error fetching phone record: ", err.Error()))
 		}
 	}
@@ -183,24 +177,23 @@ func (m mongoRepository) GetPhone(dbName, collectionName, phoneNumber string) (t
 		},
 	}
 
-	m.logger.Info().Str("traceId", traceId.(string)).Msgf("[storage-GetPhone] got the data in Mongo from phone numer %s!", phoneNumber)
+	m.logger.Info().Msgf("[storage-GetPhone] got the data in Mongo from phone numer %s!", phoneNumber)
 	return phoneResult, nil
 }
 
-func (m mongoRepository) UpdatePhoneRecord(data map[string]interface{}, dbName string, collectionName string) error {
+func (m mongoRepository) UpdatePhoneRecord(log zerolog.Logger, data map[string]interface{}, dbName string, collectionName string) error {
 	session := m.session
 	collection := session.Client().Database(dbName).Collection(collectionName)
 
-	traceId, _ := m.ctx.Get("CorrelationID")
-	m.logger.Info().Str("traceId", traceId.(string)).Msgf("[storage-UpdatePhoneRecord] started session, db: %s and collection: %s", dbName, collectionName)
+	m.logger.Info().Msgf("[storage-UpdatePhoneRecord] started session, db: %s and collection: %s", dbName, collectionName)
 
 	if len(data) == 0 || data["_id"] == nil {
-		m.logger.Error().Str("traceId", traceId.(string)).Msgf("[storage-UpdatePhoneRecord] invalid data: %v", data)
+		m.logger.Error().Msgf("[storage-UpdatePhoneRecord] invalid data: %v", data)
 		return errors.New("[UpdatePhoneRecord] invalid data")
 	}
 
 	id := data["_id"].(string)
-	m.logger.Info().Str("traceId", traceId.(string)).Msgf("[storage-UpdatePhoneRecord] updating this ID: %s", id)
+	m.logger.Info().Msgf("[storage-UpdatePhoneRecord] updating this ID: %s", id)
 
 	ctx := context.Background()
 
@@ -209,14 +202,14 @@ func (m mongoRepository) UpdatePhoneRecord(data map[string]interface{}, dbName s
 	var existingDocument bson.M
 	err := collection.FindOne(ctx, filter).Decode(&existingDocument)
 	if err != nil {
-		m.logger.Error().Str("traceId", traceId.(string)).Msgf("[storage-UpdatePhoneRecord] Error fetching existing document: %s", err.Error())
+		m.logger.Error().Msgf("[storage-UpdatePhoneRecord] Error fetching existing document: %s", err.Error())
 		return err
 	}
 
 	// Check if all keys in data exist in the existing document
 	for key := range data {
 		if _, ok := existingDocument[key]; !ok {
-			m.logger.Error().Str("traceId", traceId.(string)).Msgf("[storage-UpdatePhoneRecord]key '%s' does not exist", key)
+			m.logger.Error().Msgf("[storage-UpdatePhoneRecord]key '%s' does not exist", key)
 			return fmt.Errorf("key '%s' does not exist", key)
 		}
 	}
@@ -225,11 +218,11 @@ func (m mongoRepository) UpdatePhoneRecord(data map[string]interface{}, dbName s
 
 	_, errUpd := collection.UpdateOne(ctx, filter, update)
 	if errUpd != nil {
-		m.logger.Error().Str("traceId", traceId.(string)).Msgf("[storage-UpdatePhoneRecord] Problem to update data on MongoDB: %s", errUpd.Error())
+		m.logger.Error().Msgf("[storage-UpdatePhoneRecord] Problem to update data on MongoDB: %s", errUpd.Error())
 		return err
 	}
 
-	m.logger.Info().Str("traceId", traceId.(string)).Msg("[storage-UpdatePhoneRecord] data updated in Mongo")
+	m.logger.Info().Msg("[storage-UpdatePhoneRecord] data updated in Mongo")
 	return nil
 }
 

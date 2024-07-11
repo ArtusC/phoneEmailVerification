@@ -2,11 +2,12 @@ package api
 
 import (
 	t "github.com/ArtusC/phoneEmailVerification/types"
+	"github.com/rs/zerolog"
 )
 
 type PhoneNumberUseCase interface {
-	CollectBigDataCloudApiData(phoneNumber, countryCode, localityLanguage string) (t.PhoneNumber, error)
-	CreatePhoneRecord(data t.PhoneNumber) error
-	GetAllPhoneRecords() (t.PhoneNumberResults, error)
-	GetPhone(phoneNumber string) (t.PhoneNumber, error)
+	CollectBigDataCloudApiData(log zerolog.Logger, phoneNumber, countryCode, localityLanguage string) (t.PhoneNumber, error)
+	CreatePhoneRecord(log zerolog.Logger, data t.PhoneNumber) error
+	GetAllPhoneRecords(log zerolog.Logger) (t.PhoneNumberResults, error)
+	GetPhone(log zerolog.Logger, phoneNumber string) (t.PhoneNumber, error)
 }

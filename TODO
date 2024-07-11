@@ -1,9 +1,9 @@
-[] ver questão da KEY de acesso: passar por variavel de ambiente
+[] adicionar rota para ler inputs de um arquivo (goroutines)
+
+[] adicionar goroutines nas consultas do Mongo?
 
 [] adicionar rabbitmq
 
-[] adicionar rota para ler inputs de um arquivo
-
 [] criar docker-compose separado para teste
 
-[] refatorar os codigos de log para deixar menos verboso (criar um pckg?)
+[] adicionar makefile para facilitar os testes

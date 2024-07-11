@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ArtusC/phoneEmailVerification/mock"
 	ty "github.com/ArtusC/phoneEmailVerification/types"
@@ -23,18 +24,22 @@ type fixture struct {
 	phoneUseCaseMock *mock.MockPhoneNumberUseCase
 	api              Api
 	router           *gin.Engine
+	logger           zerolog.Logger
 }
 
+var traceID gin.HandlerFunc
+
 func setUp() *fixture {
-	log := zerolog.New(os.Stderr).With().Timestamp().Logger()
+
+	log := zerolog.New(
+		zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339},
+	).Level(zerolog.TraceLevel).With().Timestamp().Caller().Logger()
 
 	phoneUseCaseMock := &mock.MockPhoneNumberUseCase{}
 
-	var ctx *gin.Context
-	newApi := NewApi(ctx, log, phoneUseCaseMock)
+	newApi := NewApi(log, phoneUseCaseMock)
 
 	r := gin.Default()
-	r.Use(CorrelationIDMiddleware())
 	r.GET("/healthz", newApi.Healthz)
 	r.GET("/api/getAllPhones", newApi.GetAllPhoneRecords)
 	r.GET("/api/getPhone/:numberToSearch", newApi.GetPhone)
@@ -44,6 +49,7 @@ func setUp() *fixture {
 		phoneUseCaseMock: phoneUseCaseMock,
 		api:              *newApi,
 		router:           r,
+		logger:           log,
 	}
 
 }
@@ -66,10 +72,10 @@ func TestGetPhone(t *testing.T) {
 
 	data := ty.TestPhoneValue
 
-	f.phoneUseCaseMock.On("GetPhone", "12018675309").Return(data, nil)
+	f.phoneUseCaseMock.On("GetPhone", f.api.logger, "12018675309").Return(data, nil)
 
-	req, err := http.NewRequest("GET", "/api/getPhone/12018675309", nil)
 	r := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/api/getPhone/12018675309", nil)
 	f.router.ServeHTTP(r, req)
 
 	var result ty.PhoneNumber
@@ -86,7 +92,7 @@ func TestGetAllPhoneRecords_OneRecord(t *testing.T) {
 
 	data := ty.PhoneNumberResults{ty.TestPhoneValue}
 
-	f.phoneUseCaseMock.On("GetAllPhoneRecords").Return(data, nil)
+	f.phoneUseCaseMock.On("GetAllPhoneRecords", f.api.logger).Return(data, nil)
 
 	req, err := http.NewRequest("GET", "/api/getAllPhones", nil)
 	r := httptest.NewRecorder()
@@ -106,7 +112,7 @@ func TestGetAllPhoneRecords_TwoRecords(t *testing.T) {
 
 	data := ty.PhoneNumberResults{ty.TestPhoneValue, ty.TestPhoneValue_2}
 
-	f.phoneUseCaseMock.On("GetAllPhoneRecords").Return(data, nil)
+	f.phoneUseCaseMock.On("GetAllPhoneRecords", f.api.logger).Return(data, nil)
 
 	req, err := http.NewRequest("GET", "/api/getAllPhones", nil)
 	r := httptest.NewRecorder()
@@ -168,9 +174,9 @@ func TestCreatePhoneRecords(t *testing.T) {
 
 			os.Setenv("API_BDC_KEY", "test_value")
 
-			f.phoneUseCaseMock.On("GetPhone", tc.number).Return(tc.expetedGetData, tc.errorExpected)
-			f.phoneUseCaseMock.On("CollectBigDataCloudApiData", tc.number, tc.countryCode, tc.localityLanguage).Return(tc.expetedStorageData, tc.errorExpected)
-			f.phoneUseCaseMock.On("CreatePhoneRecord", tc.expetedStorageData).Return(nil)
+			f.phoneUseCaseMock.On("GetPhone", f.api.logger, tc.number).Return(tc.expetedGetData, tc.errorExpected)
+			f.phoneUseCaseMock.On("CollectBigDataCloudApiData", f.api.logger, tc.number, tc.countryCode, tc.localityLanguage).Return(tc.expetedStorageData, tc.errorExpected)
+			f.phoneUseCaseMock.On("CreatePhoneRecord", f.api.logger, tc.expetedStorageData).Return(nil)
 
 			url := fmt.Sprintf("/api/phoneNumber/%s/countryCode/%s/localityLanguage/%s", tc.number, tc.countryCode, tc.localityLanguage)
 
