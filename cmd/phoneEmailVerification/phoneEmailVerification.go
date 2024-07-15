@@ -7,7 +7,7 @@ import (
 
 	api "github.com/ArtusC/phoneEmailVerification/api"
 	repository "github.com/ArtusC/phoneEmailVerification/internal/repository"
-	phoneNumberUseCase "github.com/ArtusC/phoneEmailVerification/usecases/phoneNumber"
+	PhoneNumberUseCase "github.com/ArtusC/phoneEmailVerification/usecases/phoneNumber"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -68,7 +68,14 @@ func main() {
 	defer mongoSession.EndSession(context.TODO())
 
 	logger.Info().Msg("Instatiating phone number use case.")
-	phoneUseCases := phoneNumberUseCase.NewPhoneUseCases(logger, mongoRepo, api_bdc_key)
+
+	phoneUseCasesCh := make(chan *PhoneNumberUseCase.PhoneNumberUseCase)
+	go func() {
+		defer close(phoneUseCasesCh)
+		phoneUseCasesCh <- PhoneNumberUseCase.NewPhoneUseCases(logger, mongoRepo, api_bdc_key)
+	}()
+
+	phoneUseCases := <-phoneUseCasesCh
 
 	logger.Info().Msg("Starting API.")
 	api := api.NewApi(logger, phoneUseCases)

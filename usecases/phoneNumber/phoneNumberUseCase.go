@@ -18,21 +18,21 @@ const (
 	collectionName = "phone-collection"
 )
 
-type phoneNumberUseCase struct {
+type PhoneNumberUseCase struct {
 	logger      zerolog.Logger
 	storage     repository.MongoRepository
 	api_bdc_key string
 }
 
-func NewPhoneUseCases(logger zerolog.Logger, mongoRepo repository.MongoRepository, api_bdc_key string) *phoneNumberUseCase {
-	return &phoneNumberUseCase{
+func NewPhoneUseCases(logger zerolog.Logger, mongoRepo repository.MongoRepository, api_bdc_key string) *PhoneNumberUseCase {
+	return &PhoneNumberUseCase{
 		logger:      logger,
 		storage:     mongoRepo,
 		api_bdc_key: api_bdc_key,
 	}
 }
 
-func (p *phoneNumberUseCase) CreatePhoneRecord(log zerolog.Logger, data t.PhoneNumber) error {
+func (p *PhoneNumberUseCase) CreatePhoneRecord(log zerolog.Logger, data t.PhoneNumber) error {
 	p.logger.Info().Msg("[UseCase-CreatePhoneRecord] Starting storage.CreatePhoneRecord")
 	err := p.storage.StoragePhoneRecord(p.logger, data, dbName, collectionName)
 	if err != nil {
@@ -42,7 +42,7 @@ func (p *phoneNumberUseCase) CreatePhoneRecord(log zerolog.Logger, data t.PhoneN
 	return nil
 }
 
-func (p *phoneNumberUseCase) GetAllPhoneRecords(log zerolog.Logger) (t.PhoneNumberResults, error) {
+func (p *PhoneNumberUseCase) GetAllPhoneRecords(log zerolog.Logger) (t.PhoneNumberResults, error) {
 	p.logger.Info().Msg("[UseCase-GetAllPhoneRecords] Starting storage.GetAllPhoneRecords")
 	res, err := p.storage.GetAllPhoneRecords(p.logger, dbName, collectionName)
 	if err != nil {
@@ -52,7 +52,7 @@ func (p *phoneNumberUseCase) GetAllPhoneRecords(log zerolog.Logger) (t.PhoneNumb
 	return res, nil
 }
 
-func (p *phoneNumberUseCase) GetPhone(log zerolog.Logger, phoneNumber string) (t.PhoneNumber, error) {
+func (p *PhoneNumberUseCase) GetPhone(log zerolog.Logger, phoneNumber string) (t.PhoneNumber, error) {
 	p.logger.Info().Msg("[UseCase-GetPhone] Starting storage.GetPhone")
 	res, err := p.storage.GetPhone(p.logger, dbName, collectionName, phoneNumber)
 	if err != nil {
@@ -62,7 +62,7 @@ func (p *phoneNumberUseCase) GetPhone(log zerolog.Logger, phoneNumber string) (t
 	return res, nil
 }
 
-func (p *phoneNumberUseCase) CollectBigDataCloudApiData(log zerolog.Logger, phoneNumber, countryCode, localityLanguage string) (t.PhoneNumber, error) {
+func (p *PhoneNumberUseCase) CollectBigDataCloudApiData(log zerolog.Logger, phoneNumber, countryCode, localityLanguage string) (t.PhoneNumber, error) {
 	p.logger.Info().Msg("[UseCase-CollectBigDataCloudApiData] Starting data collection")
 
 	// Collect data from the API
