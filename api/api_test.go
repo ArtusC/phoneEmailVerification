@@ -41,9 +41,10 @@ func setUp() *fixture {
 
 	r := gin.Default()
 	r.GET("/healthz", newApi.Healthz)
-	r.GET("/api/getAllPhones", newApi.GetAllPhoneRecords)
+	r.GET("/api/getAllPhones", newApi.GetAllPhones)
 	r.GET("/api/getPhone/:numberToSearch", newApi.GetPhone)
-	r.POST("/api/phoneNumber/:numberToSearch/countryCode/:countryCodeToSearch/localityLanguage/:localityLanguageToSearch", ValidateStoragePhoneRoute(), newApi.CreatePhoneRecord)
+	r.POST("/api/phoneNumber/:numberToSearch/countryCode/:countryCodeToSearch/localityLanguage/:localityLanguageToSearch", ValidateStoragePhoneRoute(), newApi.InsertPhone)
+	r.PUT("/api/phoneNumber/:numberToSearch/countryCode/:countryCodeToSearch/localityLanguage/:localityLanguageToSearch", ValidateStoragePhoneRoute(), newApi.UpsertPhone)
 
 	return &fixture{
 		phoneUseCaseMock: phoneUseCaseMock,
@@ -92,7 +93,7 @@ func TestGetAllPhoneRecords_OneRecord(t *testing.T) {
 
 	data := ty.PhoneNumberResults{ty.TestPhoneValue}
 
-	f.phoneUseCaseMock.On("GetAllPhoneRecords", f.api.logger).Return(data, nil)
+	f.phoneUseCaseMock.On("GetAllPhones", f.api.logger).Return(data, nil)
 
 	req, err := http.NewRequest("GET", "/api/getAllPhones", nil)
 	r := httptest.NewRecorder()
@@ -112,7 +113,7 @@ func TestGetAllPhoneRecords_TwoRecords(t *testing.T) {
 
 	data := ty.PhoneNumberResults{ty.TestPhoneValue, ty.TestPhoneValue_2}
 
-	f.phoneUseCaseMock.On("GetAllPhoneRecords", f.api.logger).Return(data, nil)
+	f.phoneUseCaseMock.On("GetAllPhones", f.api.logger).Return(data, nil)
 
 	req, err := http.NewRequest("GET", "/api/getAllPhones", nil)
 	r := httptest.NewRecorder()
@@ -127,7 +128,7 @@ func TestGetAllPhoneRecords_TwoRecords(t *testing.T) {
 
 }
 
-func TestCreatePhoneRecords(t *testing.T) {
+func TestInsertPhoneRecords(t *testing.T) {
 	testCases := []struct {
 		name               string
 		number             string
@@ -139,7 +140,7 @@ func TestCreatePhoneRecords(t *testing.T) {
 		expetedStorageData ty.PhoneNumber
 	}{
 		{
-			name:               "Valid phone number",
+			name:               "Insert valid phone number",
 			number:             "12018675309",
 			countryCode:        "us",
 			localityLanguage:   "en",
@@ -162,7 +163,7 @@ func TestCreatePhoneRecords(t *testing.T) {
 			number:           "12018675355",
 			countryCode:      "us",
 			localityLanguage: "en",
-			statusExpected:   http.StatusConflict,
+			statusExpected:   http.StatusBadRequest,
 			errorExpected:    nil,
 			expetedGetData:   ty.TestPhoneValue_3,
 		},
@@ -176,7 +177,7 @@ func TestCreatePhoneRecords(t *testing.T) {
 
 			f.phoneUseCaseMock.On("GetPhone", f.api.logger, tc.number).Return(tc.expetedGetData, tc.errorExpected)
 			f.phoneUseCaseMock.On("CollectBigDataCloudApiData", f.api.logger, tc.number, tc.countryCode, tc.localityLanguage).Return(tc.expetedStorageData, tc.errorExpected)
-			f.phoneUseCaseMock.On("CreatePhoneRecord", f.api.logger, tc.expetedStorageData).Return(nil)
+			f.phoneUseCaseMock.On("InsertPhone", f.api.logger, tc.expetedStorageData).Return(nil)
 
 			url := fmt.Sprintf("/api/phoneNumber/%s/countryCode/%s/localityLanguage/%s", tc.number, tc.countryCode, tc.localityLanguage)
 
@@ -195,4 +196,42 @@ func TestCreatePhoneRecords(t *testing.T) {
 	}
 }
 
-// TODO: create updatePhoneRecord test
+func TestUpsertPhoneRecords(t *testing.T) {
+	f := setUp()
+	numberInput := "12018675309"
+	countryCode := "us"
+	localityLanguage := "en"
+
+	f.phoneUseCaseMock.On("GetPhone", f.api.logger, numberInput).Return(ty.TestPhoneValue_Null, nil)
+	f.phoneUseCaseMock.On("CollectBigDataCloudApiData", f.api.logger, numberInput, countryCode, localityLanguage).Return(ty.TestPhoneValue, nil).Once()
+	f.phoneUseCaseMock.On("InsertPhone", f.api.logger, ty.TestPhoneValue).Return(nil)
+
+	url := fmt.Sprintf("/api/phoneNumber/%s/countryCode/%s/localityLanguage/%s", numberInput, countryCode, localityLanguage)
+
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	r := httptest.NewRecorder()
+	f.router.ServeHTTP(r, req)
+
+	assert.Exactly(t, http.StatusCreated, r.Code, "success")
+	assert.Nil(t, err)
+
+	f.phoneUseCaseMock.On("CollectBigDataCloudApiData", f.api.logger, numberInput, countryCode, localityLanguage).Return(ty.TestPhoneValueUpsert_1, nil).Once()
+	f.phoneUseCaseMock.On("UpsertPhone", f.api.logger, ty.TestPhoneValueUpsert_1).Return(nil)
+
+	reqPut, errPut := http.NewRequest("PUT", url, nil)
+	if errPut != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+
+	reqPut.Header.Set("Content-Type", "application/json")
+	rPut := httptest.NewRecorder()
+	f.router.ServeHTTP(rPut, reqPut)
+
+	assert.Exactly(t, http.StatusCreated, rPut.Code, "success")
+	assert.Nil(t, errPut)
+}

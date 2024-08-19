@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -23,7 +22,6 @@ func ValidateStoragePhoneRoute() gin.HandlerFunc {
 		}
 
 		if !isNumeric(phoneToInsert) {
-			fmt.Println("Phone number is not numeric")
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 				"message": "phone number must contain only numbers",
 			})

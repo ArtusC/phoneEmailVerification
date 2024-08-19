@@ -48,12 +48,11 @@ func send(ctx *gin.Context, code int, val interface{}) {
 }
 
 func (api Api) healthz(ctx *gin.Context) {
-	traceId, _ := ctx.Get("CorrelationID")
-	api.logger.Info().Str("traceId", traceId.(string)).Msg("[API-healthz] received a simple request")
+	api.logger.Info().Msg("[API-healthz] received a simple request")
 	send(ctx, http.StatusOK, nil)
 }
 
-func (api Api) createPhoneRecord(ctx *gin.Context) {
+func (api Api) insertPhone(ctx *gin.Context) {
 	api.logger.Info().Msg("[API-createPhoneRecord] starting")
 
 	phoneNumber := ctx.Param("numberToSearch")
@@ -71,7 +70,7 @@ func (api Api) createPhoneRecord(ctx *gin.Context) {
 
 	if phone.PhoneInput != "" {
 		api.logger.Error().Msgf("[API-createPhoneRecord] error: phone number %s already exists\n", phoneNumber)
-		send(ctx, http.StatusConflict, nil)
+		send(ctx, http.StatusBadRequest, nil)
 		return
 	}
 
@@ -82,7 +81,7 @@ func (api Api) createPhoneRecord(ctx *gin.Context) {
 		return
 	}
 
-	err = api.phoneUseCases.CreatePhoneRecord(api.logger, phoneData)
+	err = api.phoneUseCases.InsertPhone(api.logger, phoneData)
 	if err != nil {
 		api.logger.Error().Msgf("[API-createPhoneRecord] error to storage the phone data: %s\n", err.Error())
 		send(ctx, http.StatusBadRequest, nil)
@@ -93,15 +92,15 @@ func (api Api) createPhoneRecord(ctx *gin.Context) {
 	send(ctx, http.StatusCreated, nil)
 }
 
-func (api Api) getAllPhoneRecords(ctx *gin.Context) {
-	api.logger.Info().Msg("[API-getAllPhoneRecords] starting")
+func (api Api) getAllPhones(ctx *gin.Context) {
+	api.logger.Info().Msg("[API-getAllPhones] starting")
 
-	phones, err := api.phoneUseCases.GetAllPhoneRecords(api.logger)
+	phones, err := api.phoneUseCases.GetAllPhones(api.logger)
 	if err != nil {
-		api.logger.Panic().Msgf("[API-getAllPhoneRecords] error to get all phone data: %s\n", err.Error())
+		api.logger.Panic().Msgf("[API-getAllPhones] error to get all phone data: %s\n", err.Error())
 	}
 
-	api.logger.Info().Msg("[API-getAllPhoneRecords] got all phone data")
+	api.logger.Info().Msg("[API-getAllPhones] got all phone data")
 	send(ctx, http.StatusOK, phones)
 }
 
@@ -120,4 +119,29 @@ func (api Api) getPhone(ctx *gin.Context) {
 	send(ctx, http.StatusOK, phone)
 }
 
-// TODO: create updatePhoneRecord route
+func (api Api) upsertPhone(ctx *gin.Context) {
+	api.logger.Info().Msg("[API-upsertPhone] starting")
+
+	phoneNumber := ctx.Param("numberToSearch")
+	countryCode := ctx.Param("countryCodeToSearch")
+	localityLanguage := ctx.Param("localityLanguageToSearch")
+
+	api.logger.Info().Msgf("[API-upsertPhone] phoneNumber: %s\ncountryCode: %s\nlocalityLanguage: %s\n", phoneNumber, countryCode, localityLanguage)
+
+	phoneData, err := api.phoneUseCases.CollectBigDataCloudApiData(api.logger, phoneNumber, countryCode, localityLanguage)
+	if err != nil {
+		api.logger.Error().Msgf("[API-upsertPhone] error to collect the phone data: %s\n", err.Error())
+		send(ctx, http.StatusBadRequest, nil)
+		return
+	}
+
+	err = api.phoneUseCases.UpsertPhone(api.logger, phoneData)
+	if err != nil {
+		api.logger.Error().Msgf("[API-upsertPhone] error to storage the phone data: %s\n", err.Error())
+		send(ctx, http.StatusBadRequest, nil)
+		return
+	}
+
+	api.logger.Info().Msgf("[API-upsertPhone] phone number %s collected and storaged on mongo", phoneNumber)
+	send(ctx, http.StatusCreated, nil)
+}

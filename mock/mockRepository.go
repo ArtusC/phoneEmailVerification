@@ -18,12 +18,12 @@ func (mock *MockMongoRepository) StoragePhoneRecord(ctx *gin.Context, data map[s
 	return args.Error(0)
 }
 
-func (mock *MockMongoRepository) UpdateePhoneRecord(ctx *gin.Context, data map[string]interface{}, dbName, collectionName string) error {
+func (mock *MockMongoRepository) UpdatePhoneRecord(ctx *gin.Context, data map[string]interface{}, dbName, collectionName string) error {
 	args := mock.Called(ctx, data, dbName, collectionName)
 	return args.Error(0)
 }
 
-func (mock *MockMongoRepository) GetAllPhoneRecords(ctx *gin.Context, dbName, collectionName string) (results map[string]interface{}, err error) {
+func (mock *MockMongoRepository) GetAllPhones(ctx *gin.Context, dbName, collectionName string) (results map[string]interface{}, err error) {
 	args := mock.Called(ctx, dbName, collectionName)
 	return args.Get(0).(map[string]interface{}), args.Error(1)
 }

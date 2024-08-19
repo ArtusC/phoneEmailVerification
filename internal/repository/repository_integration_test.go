@@ -86,6 +86,7 @@ func TestMongoRespository_StoragePhoneRecord(t *testing.T) {
 	testCase := []struct {
 		testName      string
 		phoneOutput   tp.PhoneNumber
+		storageType   string
 		expectedError error
 	}{
 		{
@@ -155,7 +156,7 @@ func TestMongoRespository_GetPhoneRecord(t *testing.T) {
 	}
 }
 
-// go test -v -count=1 -covermode=atomic -tags integration ./internal/repository -run ^TestMongoRespository_GetAllPhoneRecords$
+// go test -v -count=1 -covermode=atomic -tags integration ./internal/repository -run ^TestMongoRespository_GetAllPhoneRecordsOneRecord$
 func TestMongoRespository_GetAllPhoneRecordsOneRecord(t *testing.T) {
 	f := setUp()
 	defer f.tearDown()
@@ -165,14 +166,11 @@ func TestMongoRespository_GetAllPhoneRecordsOneRecord(t *testing.T) {
 	err := f.mongoRepository.StoragePhoneRecord(f.logger, data, dbName, collectionName)
 	assert.Nil(t, err)
 
-	res, err := f.mongoRepository.GetAllPhoneRecords(f.logger, dbName, collectionName)
+	res, err := f.mongoRepository.GetAllPhones(f.logger, dbName, collectionName)
 	assert.Nil(t, err)
-
-	fmt.Println("Result: ", res)
 
 	assert.Contains(t, fmt.Sprint(res[0].ID), repository.GetMD5Hash(data.PhoneInput))
 	assert.Contains(t, fmt.Sprint(res[0].E164Format), data.PhoneInput)
-
 }
 
 // go test -v -count=1 -covermode=atomic -tags integration ./internal/repository -run ^TestMongoRespository_GetAllPhoneRecordsMoreThanOneRecord$
@@ -189,7 +187,7 @@ func TestMongoRespository_GetAllPhoneRecordsMoreThanOneRecord(t *testing.T) {
 	err = f.mongoRepository.StoragePhoneRecord(f.logger, data2, dbName, collectionName)
 	assert.Nil(t, err)
 
-	res, err := f.mongoRepository.GetAllPhoneRecords(f.logger, dbName, collectionName)
+	res, err := f.mongoRepository.GetAllPhones(f.logger, dbName, collectionName)
 	assert.Nil(t, err)
 
 	res = sortSliceOFStructByField(res, "ID")
@@ -204,70 +202,92 @@ func TestMongoRespository_GetAllPhoneRecordsMoreThanOneRecord(t *testing.T) {
 
 // go test -v -count=1 -covermode=atomic -tags integration ./internal/repository -run ^TestMongoRespository_UpdatePhoneRecord$
 func TestMongoRespository_UpdatePhoneRecord(t *testing.T) {
-	tests := []struct {
-		name                string
-		data                tp.PhoneNumber
-		newData             map[string]interface{}
-		expected            string
-		expectedUpdateError error
-	}{
-		{
-			name: "Update existing phone record",
-			data: tp.TestPhoneValue,
-			newData: map[string]interface{}{
-				"_id":        "0dab7e5e343206634713474e42af8fe3",
-				"phoneInput": "1211111",
-			},
-			expected:            "1211111",
-			expectedUpdateError: nil,
-		},
-		{
-			name: "Do not update when new data id does not exist",
-			data: tp.TestPhoneValue_2,
-			newData: map[string]interface{}{
-				"_id":        "0dab7e5e343206634713474e42af8111",
-				"phoneInput": "12112345",
-			},
-			expected:            "",
-			expectedUpdateError: errors.New("mongo: no documents in result"),
-		},
-		{
-			name: "Do not update when a key in new data does not exist",
-			data: tp.TestPhoneValue_3,
-			newData: map[string]interface{}{
-				"_id":          "95dee1eaa24f8b7912df00f1ef797a63",
-				"keyDontExist": "12112365",
-			},
-			expected:            "",
-			expectedUpdateError: errors.New("key 'keyDontExist' does not exist"),
-		},
-	}
-
 	f := setUp()
 	defer f.tearDown()
 
+	tests := []struct {
+		name                string
+		newData             tp.PhoneNumber
+		expectedData        tp.PhoneNumberResults
+		expectedUpdateError error
+	}{
+		{
+			name:                "Update existing phone record",
+			newData:             tp.TestPhoneValueUpsert_1,
+			expectedData:        tp.TestPhoneValueUpsertResult,
+			expectedUpdateError: nil,
+		},
+		{
+			name:                "Update existing phone record 2",
+			newData:             tp.TestPhoneValueUpsert_2,
+			expectedData:        tp.TestPhoneValueUpsertResult_2,
+			expectedUpdateError: nil,
+		},
+		{
+			name:                "Update existing phone record 3",
+			newData:             tp.TestPhoneValueUpsert_3,
+			expectedData:        tp.TestPhoneValueUpsertResult_3,
+			expectedUpdateError: nil,
+		},
+	}
+
+	err := f.mongoRepository.StoragePhoneRecord(f.logger, tp.TestPhoneValue, dbName, collectionName)
+	assert.Nil(t, err)
+
+	res, err := f.mongoRepository.GetAllPhones(f.logger, dbName, collectionName)
+	assert.Nil(t, err)
+	assert.Contains(t, fmt.Sprint(res), repository.GetMD5Hash(tp.TestPhoneValue.PhoneInput))
+	assert.Contains(t, fmt.Sprint(res), tp.TestPhoneValue.PhoneInput)
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := f.mongoRepository.StoragePhoneRecord(f.logger, tt.data, dbName, collectionName)
-			assert.Nil(t, err)
-
-			res, err := f.mongoRepository.GetAllPhoneRecords(f.logger, dbName, collectionName)
-			assert.Nil(t, err)
-			assert.Contains(t, fmt.Sprint(res), repository.GetMD5Hash(tt.data.PhoneInput))
-			assert.Contains(t, fmt.Sprint(res), tt.data.PhoneInput)
 
 			errUpd := f.mongoRepository.UpdatePhoneRecord(f.logger, tt.newData, dbName, collectionName)
 			if errUpd == nil {
-				res, err = f.mongoRepository.GetAllPhoneRecords(f.logger, dbName, collectionName)
+				res, err = f.mongoRepository.GetAllPhones(f.logger, dbName, collectionName)
 				assert.Nil(t, err)
-				assert.Contains(t, fmt.Sprint(res[0].ID), repository.GetMD5Hash(tt.data.PhoneInput))
-				assert.Equal(t, fmt.Sprint(res[0].PhoneInput), tt.expected)
+				assert.EqualValues(t, res, tt.expectedData)
+
+				assert.Contains(t, fmt.Sprint(res[0].ID), repository.GetMD5Hash(tp.TestPhoneValue.PhoneInput))
+				assert.Equal(t, fmt.Sprint(res[0].PhoneInput), tt.expectedData[0].PhoneInput)
+
 			} else {
 				assert.EqualError(t, errUpd, tt.expectedUpdateError.Error())
 			}
 
 		})
 	}
+}
+
+// go test -v -count=1 -covermode=atomic -tags integration ./internal/repository -run ^TestMongoRespository_UpdatePhoneRecord_Error$
+func TestMongoRespository_UpdatePhoneRecord_Error(t *testing.T) {
+	f := setUp()
+	defer f.tearDown()
+
+	data := tp.TestPhoneValue_2
+
+	err := f.mongoRepository.StoragePhoneRecord(f.logger, data, dbName, collectionName)
+	assert.Nil(t, err)
+
+	res, err := f.mongoRepository.GetAllPhones(f.logger, dbName, collectionName)
+	assert.Nil(t, err)
+
+	assert.Contains(t, fmt.Sprint(res[0].ID), repository.GetMD5Hash(data.PhoneInput))
+	assert.Contains(t, fmt.Sprint(res[0].E164Format), data.PhoneInput)
+
+	newData := tp.PhoneNumber{
+		ID:         "0dab7e5e343206634713474e42af8111",
+		PhoneInput: "12112345",
+	}
+
+	errUpd := f.mongoRepository.UpdatePhoneRecord(f.logger, newData, dbName, collectionName)
+
+	expectedUpdateError := errors.New("mongo: no documents in result")
+
+	assert.Contains(t, fmt.Sprint(res[0].ID), repository.GetMD5Hash(data.PhoneInput))
+	assert.Contains(t, fmt.Sprint(res[0].E164Format), data.PhoneInput)
+	assert.EqualError(t, errUpd, expectedUpdateError.Error())
+
 }
 
 func sortSliceOFStructByField(s tp.PhoneNumberResults, f string) tp.PhoneNumberResults {

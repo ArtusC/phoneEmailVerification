@@ -29,7 +29,7 @@ type WbIncomeLevel struct {
 type Country struct {
 	IsoAlpha2         string            `bson:"isoAlpha2" json:"isoAlpha2,omitempty"`
 	IsoAlpha3         string            `bson:"isoAlpha3" json:"isoAlpha3,omitempty"`
-	M49Code           int               `bson:"m49Code" json:"m49Code,omitempty"`
+	M49Code           int32             `bson:"m49Code" json:"m49Code,omitempty"`
 	Name              string            `bson:"name" json:"name,omitempty"`
 	IsoName           string            `bson:"isoName" json:"isoName,omitempty"`
 	IsoNameFull       string            `bson:"isoNameFull" json:"isoNameFull,omitempty"`

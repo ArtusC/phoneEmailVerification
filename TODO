@@ -1,9 +1,5 @@
 [] adicionar rota para ler inputs de um arquivo (goroutines)
 
-[] adicionar goroutines nas consultas do Mongo?
-
-[] adicionar rabbitmq
-
 [] criar docker-compose separado para teste
 
-[] adicionar makefile para facilitar os testes
+[] adicionar rabbitmq

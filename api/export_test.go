@@ -8,14 +8,18 @@ func (a Api) Healthz(c *gin.Context) {
 	a.healthz(c)
 }
 
-func (a Api) GetAllPhoneRecords(c *gin.Context) {
-	a.getAllPhoneRecords(c)
+func (a Api) GetAllPhones(c *gin.Context) {
+	a.getAllPhones(c)
 }
 
 func (a Api) GetPhone(c *gin.Context) {
 	a.getPhone(c)
 }
 
-func (a Api) CreatePhoneRecord(c *gin.Context) {
-	a.createPhoneRecord(c)
+func (a Api) InsertPhone(c *gin.Context) {
+	a.insertPhone(c)
+}
+
+func (a Api) UpsertPhone(c *gin.Context) {
+	a.upsertPhone(c)
 }

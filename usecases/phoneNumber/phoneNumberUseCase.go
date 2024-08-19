@@ -32,21 +32,31 @@ func NewPhoneUseCases(logger zerolog.Logger, mongoRepo repository.MongoRepositor
 	}
 }
 
-func (p *PhoneNumberUseCase) CreatePhoneRecord(log zerolog.Logger, data t.PhoneNumber) error {
-	p.logger.Info().Msg("[UseCase-CreatePhoneRecord] Starting storage.CreatePhoneRecord")
+func (p *PhoneNumberUseCase) InsertPhone(log zerolog.Logger, data t.PhoneNumber) error {
+	p.logger.Info().Msg("[UseCase-InsertPhone] Starting storage.InsertPhone")
 	err := p.storage.StoragePhoneRecord(p.logger, data, dbName, collectionName)
 	if err != nil {
-		p.logger.Panic().Msgf("[UseCase-CreatePhoneRecord] %s", err.Error())
+		p.logger.Panic().Msgf("[UseCase-InsertPhone] %s", err.Error())
 	}
 
 	return nil
 }
 
-func (p *PhoneNumberUseCase) GetAllPhoneRecords(log zerolog.Logger) (t.PhoneNumberResults, error) {
-	p.logger.Info().Msg("[UseCase-GetAllPhoneRecords] Starting storage.GetAllPhoneRecords")
-	res, err := p.storage.GetAllPhoneRecords(p.logger, dbName, collectionName)
+func (p *PhoneNumberUseCase) UpsertPhone(log zerolog.Logger, data t.PhoneNumber) error {
+	p.logger.Info().Msg("[UseCase-UpsertPhone] Starting storage.UpdatePhoneRecord")
+	err := p.storage.UpdatePhoneRecord(p.logger, data, dbName, collectionName)
 	if err != nil {
-		p.logger.Panic().Msgf("[UseCase-GetAllPhoneRecords] %s", err.Error())
+		p.logger.Panic().Msgf("[UseCase-UpsertPhone] %s", err.Error())
+	}
+
+	return nil
+}
+
+func (p *PhoneNumberUseCase) GetAllPhones(log zerolog.Logger) (t.PhoneNumberResults, error) {
+	p.logger.Info().Msg("[UseCase-GetAllPhones] Starting storage.GetAllPhones")
+	res, err := p.storage.GetAllPhones(p.logger, dbName, collectionName)
+	if err != nil {
+		p.logger.Panic().Msgf("[UseCase-GetAllPhones] %s", err.Error())
 	}
 
 	return res, nil
@@ -56,7 +66,7 @@ func (p *PhoneNumberUseCase) GetPhone(log zerolog.Logger, phoneNumber string) (t
 	p.logger.Info().Msg("[UseCase-GetPhone] Starting storage.GetPhone")
 	res, err := p.storage.GetPhone(p.logger, dbName, collectionName, phoneNumber)
 	if err != nil {
-		p.logger.Panic().Msgf("[UseCase-GetAllPhoneRecords] %s", err.Error())
+		p.logger.Panic().Msgf("[UseCase-GetAllPhones] %s", err.Error())
 	}
 
 	return res, nil
@@ -67,7 +77,7 @@ func (p *PhoneNumberUseCase) CollectBigDataCloudApiData(log zerolog.Logger, phon
 
 	// Collect data from the API
 	data, err := collectData(p.logger, phoneNumber, countryCode, localityLanguage, p.api_bdc_key)
-	// data, err := collectData(ctx, "201 867-5309", "us", "en", key)
+
 	if err != nil {
 		p.logger.Error().Msgf("[UseCase-CollectBigDataCloudApiData] Error to collect data: %s", err.Error())
 		return t.PhoneNumber{}, err
@@ -121,7 +131,6 @@ func collectData(logger zerolog.Logger, phoneNumber, countryCode, localityLangua
 	json.Unmarshal(bodyText, &phoneNumberResponse)
 
 	logger.Info().Msg("[collectData] data collected!")
-	// fmt.Printf("%+v\n", string())
 
 	phoneNumberResponse.PhoneInput = phoneNumber
 

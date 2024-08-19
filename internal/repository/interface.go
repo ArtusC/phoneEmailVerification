@@ -7,7 +7,7 @@ import (
 
 type MongoRepository interface {
 	StoragePhoneRecord(log zerolog.Logger, data t.PhoneNumber, dbName, collectionName string) error
-	UpdatePhoneRecord(log zerolog.Logger, data map[string]interface{}, dbName, collectionName string) error
-	GetAllPhoneRecords(log zerolog.Logger, dbName, collectionName string) (t.PhoneNumberResults, error)
+	UpdatePhoneRecord(log zerolog.Logger, data t.PhoneNumber, dbName, collectionName string) error
+	GetAllPhones(log zerolog.Logger, dbName, collectionName string) (t.PhoneNumberResults, error)
 	GetPhone(log zerolog.Logger, dbName, collectionName, phoneNumber string) (t.PhoneNumber, error)
 }

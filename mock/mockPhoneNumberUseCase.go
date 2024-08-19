@@ -18,12 +18,17 @@ func (mock *MockPhoneNumberUseCase) CollectBigDataCloudApiData(log zerolog.Logge
 	return args.Get(0).(t.PhoneNumber), args.Error(1)
 }
 
-func (mock *MockPhoneNumberUseCase) CreatePhoneRecord(log zerolog.Logger, phoneRecord t.PhoneNumber) error {
+func (mock *MockPhoneNumberUseCase) InsertPhone(log zerolog.Logger, phoneRecord t.PhoneNumber) error {
 	args := mock.Called(log, phoneRecord)
 	return args.Error(0)
 }
 
-func (mock *MockPhoneNumberUseCase) GetAllPhoneRecords(log zerolog.Logger) (t.PhoneNumberResults, error) {
+func (mock *MockPhoneNumberUseCase) UpsertPhone(log zerolog.Logger, phoneRecord t.PhoneNumber) error {
+	args := mock.Called(log, phoneRecord)
+	return args.Error(0)
+}
+
+func (mock *MockPhoneNumberUseCase) GetAllPhones(log zerolog.Logger) (t.PhoneNumberResults, error) {
 	args := mock.Called(log)
 	return args.Get(0).(t.PhoneNumberResults), args.Error(1)
 }
