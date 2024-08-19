@@ -47,7 +47,7 @@ To run this project, you must have intalled:
 
 * (GET) Get all numbers already collected:
     * Example:
-    
+
         `http://localhost:8080/api/getAllPhones`
 
 ### Verify emails:
