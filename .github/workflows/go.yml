@@ -16,6 +16,7 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: 1.20.x
+        # gopath problem solved here https://github.com/actions/setup-go/issues/326
 
     - name: Install dependencies
       run: |
