@@ -1,0 +1,5 @@
+[] adicionar rota para ler inputs de um arquivo (goroutines)
+
+[] criar docker-compose separado para teste
+
+[] adicionar rabbitmq

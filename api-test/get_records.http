@@ -1,0 +1,4 @@
+# GET http://localhost:8080/api/getAllPhones HTTP/1.1
+GET http://localhost:8080/api/getPhone/049999292755 HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
