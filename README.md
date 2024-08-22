@@ -21,7 +21,7 @@ To run this project, you must have intalled:
 
 3) In one shell, connect with the MongoDb running the following docker-compose command on the project folder root:
 
-    `docker-compose up`
+    `make createDBApp` OR `docker-compose up`
     * Sometimes the DB takes a realtive long time to get up.
 
 4) In another shell, run the app:
@@ -40,6 +40,11 @@ To run this project, you must have intalled:
 
         `http://localhost:8080/api/phoneNumber/2018675309/countryCode/us/localityLanguage/en`
 
+* (PUT) Search an already saved record and update a number:
+    * Example:
+
+        `http://localhost:8080/api/phoneNumber/2018675309/countryCode/us/localityLanguage/en`
+
 * (GET) Get specific number already collected on DB:
     * Example:
 
@@ -52,3 +57,22 @@ To run this project, you must have intalled:
 
 ### Verify emails:
 * Not available =/
+
+
+## Running the tests
+
+1) In one shell, connect with the MongoDb_test and running the following docker-compose-test command on the project folder root:
+
+    `make createDBTest` OR `docker-compose -f docker-compose-test.yaml up `
+
+2) Use the make comands to run the **INTEGRATION** and/or **UNITARY** tests
+    * **run unitary tests**
+        - to run **all tests**, just run: `make unitCheck`
+        - to run a **specific test file**, example: `make unitCheck testfile=./internal/repository/`
+        - to run a **specific test name**, example: `make unitCheck testfile=./internal/repository/ testname=TEST_NAME`
+        - if you want to run these tests with a **race flag**, put **-race=race**, example: `make unitCheck testfile=./internal/repository/ testname=TEST_NAME -race=race`
+
+    * **run integration tests**
+        - to run **all tests**, just run: `make integrationCheck`
+        - to run a **specific test file**, example: `make integrationCheck testfile=./internal/repository/`
+        - to run a **specific test name**, example: `make integrationCheck testfile=./internal/repository/ testname=TEST_NAME`

@@ -1,8 +1,8 @@
-# POST http://localhost:8080/api/phoneNumber/049999292755/countryCode/br/localityLanguage/en HTTP/1.1
-# Host: localhost:8080
-# Content-Type: application/json
-
-
-PUT http://localhost:8080/api/phoneNumber/049999292755/countryCode/br/localityLanguage/en HTTP/1.1
+POST http://localhost:8080/api/phoneNumber/049999292755/countryCode/br/localityLanguage/en HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
+
+
+# PUT http://localhost:8080/api/phoneNumber/049999292755/countryCode/br/localityLanguage/en HTTP/1.1
+# Host: localhost:8080
+# Content-Type: application/json
